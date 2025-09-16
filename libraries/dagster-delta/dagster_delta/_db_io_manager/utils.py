@@ -8,17 +8,23 @@ from dagster import (
     AssetKey,
     MultiPartitionKey,
     MultiPartitionsDefinition,
+    PartitionsDefinition,
     TimeWindowPartitionsDefinition,
 )
-from dagster._core.definitions.partitions.utils import TimeWindow
+
+try:
+    from dagster._core.definitions.partitions.utils import TimeWindow
+except ModuleNotFoundError:
+    from dagster._core.definitions.time_window_partitions import TimeWindow
+
 from dagster._core.storage.db_io_manager import TablePartitionDimension
 from pendulum import instance as pdi
 
 
 def generate_multi_partitions_dimension(
     asset_partition_keys: Sequence[str],
-    asset_partitions_def: MultiPartitionsDefinition,
-    partition_expr: Mapping[str, str],
+    asset_partitions_def: MultiPartitionsDefinition | PartitionsDefinition,
+    partition_expr: Mapping[str, str] | TimeWindow | None,
     asset_key: AssetKey,
 ) -> list[TablePartitionDimension]:
     """Generates multi partition dimensions."""
@@ -27,7 +33,7 @@ def generate_multi_partitions_dimension(
         cast(MultiPartitionKey, partition_key).keys_by_dimension
         for partition_key in asset_partition_keys
     ]
-    for part in asset_partitions_def.partitions_defs:
+    for part in asset_partitions_def.partitions_defs:  # type: ignore[attr-defined]
         partitions: list[TimeWindow | str] = []
         for multi_partition_key_mapping in multi_partition_key_mappings:
             partition_key = multi_partition_key_mapping[part.name]
@@ -38,7 +44,7 @@ def generate_multi_partitions_dimension(
             else:
                 partitions.append(partition_key)
 
-        partition_expr_str = partition_expr.get(part.name)
+        partition_expr_str = partition_expr.get(part.name)  # type: ignore[attr-defined]
         if partition_expr_str is None:
             raise ValueError(
                 f"Asset '{asset_key}' has partition {part.name}, but the"
@@ -90,7 +96,7 @@ def generate_single_partition_dimension(
     if isinstance(asset_partitions_time_window, TimeWindow):
         partition_dimension = TablePartitionDimension(
             partition_expr=partition_expr,
-            partitions=(asset_partitions_time_window if asset_partition_keys else []),
+            partitions=(asset_partitions_time_window if asset_partition_keys else []),  # type: ignore
         )
     else:
         partition_dimension = TablePartitionDimension(
@@ -132,16 +138,14 @@ class MultiTimePartitionsChecker:
 
     def is_consecutive(self) -> bool:
         """Checks whether the provided start dates of each partition timewindow is consecutive"""
-        return (
-            len(
-                {
-                    pdi(self.start).add(hours=self.hourly_delta * i)
-                    for i in range(date_diff(self.start, self.end).in_days() + 1)
-                }
-                - {pdi(d.start) for d in self._partitions},
-            )
-            == 1
-        )
+        expected_starts = {
+            pdi(self.start).add(hours=self.hourly_delta * i)
+            for i in range(len(set(self._partitions)))
+        }
+
+        actual_starts = {pdi(d.start) for d in self._partitions}
+
+        return expected_starts == actual_starts
 
 
 def date_diff(start: dt.datetime, end: dt.datetime) -> pendulum.Interval:

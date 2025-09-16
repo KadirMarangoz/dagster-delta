@@ -1,9 +1,15 @@
 from collections.abc import Iterable, Sequence
 from typing import Optional, Union, cast
 
-from dagster._core.definitions.partitions.utils import (
-    TimeWindow,
-)
+try:
+    from dagster._core.definitions.partitions.utils import (
+        TimeWindow,
+    )
+except ImportError:
+    from dagster._core.definitions.time_window_partitions import (
+        TimeWindow,
+    )
+
 from dagster._core.storage.db_io_manager import TablePartitionDimension
 from deltalake.schema import Field as DeltaField
 from deltalake.schema import PrimitiveType, Schema
@@ -79,8 +85,8 @@ def _value_dnf(
             start_dt = min(start_dts)
             end_dt = max(end_dts)
         else:
-            start_dt = table_partition.partitions.start
-            end_dt = table_partition.partitions.end
+            start_dt = table_partition.partitions.start  # type: ignore[attr-defined]
+            end_dt = table_partition.partitions.end  # type: ignore[attr-defined]
 
         start_dt = start_dt.strftime(date_format)
         end_dt = end_dt.strftime(date_format)
