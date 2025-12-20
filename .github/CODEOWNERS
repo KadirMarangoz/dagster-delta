@@ -1,2 +1,3 @@
-libraries/dagster-delta/ @ion-elgreco
-.github/ @ion-elgreco
+libraries/dagster-delta/ @ion-elgreco @gfvioli
+libraries/dagster-unity-catalog-polars/ @ion-elgreco @gfvioli
+.github/ @ion-elgreco @gfvioli
