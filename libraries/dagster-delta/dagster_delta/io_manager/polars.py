@@ -44,7 +44,7 @@ class _DeltaLakePolarsTypeHandler(DeltalakeBaseArrowTypeHandler[PolarsTypes]):  
 
     def to_arrow(self, obj: PolarsTypes) -> RecordBatchReader:  # noqa: D102
         if isinstance(obj, pl.LazyFrame):
-            obj = obj.collect()
+            obj = obj.collect(engine="streaming")
 
         logger = logging.getLogger()
         logger.setLevel("DEBUG")
